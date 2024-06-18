@@ -71,7 +71,7 @@ class Fact_Fake_Row:
         self.quantity = random.randint(1, 10)
         self.tax = round(self.unit_price * self.quantity * 0.05, 2)
         self.total = round(self.unit_price * self.quantity + self.tax, 2)
-        self.date = FAKE.date_this_year()
+        self.date =  datetime.datetime.today().strftime('%Y-%m-%d')
         self.time = FAKE.time(pattern='%H:%M:%S')
         self.payment_method = random.choice(['Cash', 'Credit Card', 'E-wallet'])
         self.cogs = round(self.total / 1.05, 2)
@@ -113,6 +113,7 @@ data_dict = {column: [] for column in columns}
 
 for _ in range(row_n):
     fake_row_dict = Fact_Fake_Row(_products_dict, _customers_dict, _branches_dict).get_FAKE_row()
+    #set date to tadays date
     for key in fake_row_dict.keys():
         data_dict[key].append(fake_row_dict[key])
 
