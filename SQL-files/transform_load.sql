@@ -1,7 +1,6 @@
 USE DWH;
---populating ETL_BATCH
-SET
-  @CURRENT_BATCH_ID = (
+
+SET @CURRENT_BATCH_ID = (
     SELECT
       COALESCE(MAX(batch_id), 0) AS next_id
     FROM
@@ -12,7 +11,6 @@ SET
 INSERT INTO ETL_BATCH (batch_id, start_time)
 VALUES (@CURRENT_BATCH_ID, NOW()); 
 
--- EXTRACT BRANCHES
 INSERT INTO BRANCHES(branch_name, city)
 SELECT DISTINCT branch_name, city
 FROM CSV_STAGING
@@ -20,7 +18,7 @@ WHERE (branch_name, city) NOT IN (
     SELECT branch_name, city FROM BRANCHES
     );
 
--- Extract unique clients
+
 INSERT INTO CLIENTS (first_name, last_name)
 SELECT DISTINCT client_fname, client_lname
 FROM CSV_STAGING
@@ -31,7 +29,7 @@ WHERE (client_fname, client_lname) NOT IN (
 AND client_phone NOT IN (SELECT phone_number FROM CLIENT_PHONES)
 AND client_email NOT IN (SELECT email FROM CLIENT_EMAILS);
 
---EXTRACT CLIENT EMAILS 
+
 INSERT INTO CLIENT_EMAILS (person_id, email)
 SELECT DISTINCT CLIENTS.client_id, CSV_STAGING.client_email
 FROM CSV_STAGING
@@ -42,7 +40,7 @@ AND CSV_STAGING.client_email NOT IN (
     SELECT email FROM CLIENT_EMAILS
 );
 
--- Extract client phones
+
 INSERT INTO CLIENT_PHONES (person_id, phone_number)
 SELECT DISTINCT CLIENTS.client_id, CSV_STAGING.client_phone
 FROM CSV_STAGING
@@ -54,7 +52,7 @@ AND CSV_STAGING.client_phone NOT IN (
 );
 
 
--- Extract salesmen
+
 INSERT INTO SALESMEN (first_name, last_name)
 SELECT DISTINCT salesman_fname, salesman_lname
 FROM CSV_STAGING
@@ -62,16 +60,14 @@ WHERE CSV_STAGING.salesman_fname NOT IN (SELECT first_name FROM SALESMEN)
 AND CSV_STAGING.salesman_lname NOT IN (SELECT last_name FROM SALESMEN);
 
 
--- Extract products
+
 INSERT INTO PRODUCTS (product_name, product_line)
 SELECT DISTINCT product_name, product_line
 FROM CSV_STAGING
 WHERE (product_name, product_line) NOT IN (SELECT product_name, product_line FROM PRODUCTS);
 
 
--- EXTRACT PRICES
--- PRICES is a slowly changing dimension type 2
--- STEP 1: CLOSE OLD PRICES
+
 UPDATE PRICES
 INNER JOIN (
   SELECT DISTINCT P.product_id, STR_TO_DATE(CSTG.order_date, '%Y-%m-%d') AS new_date_to
@@ -85,13 +81,13 @@ SET PRICES.date_to = to_close.new_date_to,
     PRICES.is_current = FALSE;
 
 
--- STEP 2: ADD NEW PRICES
+
 INSERT INTO PRICES (product_id, price, date_from, date_to, is_current)
 SELECT DISTINCT
     P.product_id,
     CSTG.product_price, 
     CSTG.order_date, 
-    '9999-12-31',  -- Assuming '9999-12-31' or another far-future date signifies current record
+    '9999-12-31',
     TRUE
 FROM CSV_STAGING AS CSTG
 LEFT JOIN PRODUCTS AS P ON P.product_name = CSTG.product_name
@@ -103,7 +99,7 @@ WHERE NOT EXISTS (
 );
 
 
--- populating order fact table
+
 INSERT INTO ORDERS_FACT(
     client_id,
     invoice_id,
@@ -147,7 +143,6 @@ ON DUPLICATE KEY UPDATE
 
 
 
--- populate PRODUCT_ORDER
 INSERT INTO PRODUCT_ORDER (invoice_id, product_id, order_amount)
 SELECT 
     ORDERS_FACT.invoice_id, 
@@ -170,7 +165,6 @@ WHERE
 
 
 
--- update ETL finish time in ETL_BATCH table 
 UPDATE ETL_BATCH
 SET finish_time = NOW() 
 WHERE batch_id = @CURRENT_BATCH_ID;

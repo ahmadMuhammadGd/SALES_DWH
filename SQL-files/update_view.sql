@@ -1,3 +1,4 @@
+USE DWH;
 CREATE OR REPLACE VIEW vw_clients_info AS
 SELECT 
     c.client_id,
@@ -24,7 +25,7 @@ WHERE pr.is_current = TRUE;
 
 
 CREATE OR REPLACE VIEW vw_orders_details AS
-SELECT 
+SELECT DISTINCT
     ORDERS_FACT.invoice_id,
     CONCAT(CLIENTS.first_name, ' ', CLIENTS.last_name) AS client_name,
     BRANCHES.branch_name,
@@ -36,8 +37,8 @@ SELECT
     PRODUCTS.product_name,
     PRODUCTS.product_line,
     PRODUCTS.product_description,
-    PRODUCT_ORDER.order_amount,
-    PRICES.price
+    PRICES.price,
+    SUM(PRODUCT_ORDER.order_amount) AS quantity
 FROM ORDERS_FACT
 LEFT JOIN PRODUCT_ORDER ON ORDERS_FACT.invoice_id = PRODUCT_ORDER.invoice_id
 LEFT JOIN PRODUCTS ON PRODUCT_ORDER.product_id = PRODUCTS.product_id
@@ -49,8 +50,18 @@ PRICES.product_id = PRODUCTS.product_id
 AND
 ORDERS_FACT.order_date >= PRICES.date_from
 AND 
-ORDERS_FACT.order_date < PRICES.date_to;
-
-SELECT * FROM vw_clients_info;
-SELECT * FROM vw_current_product_prices;
-SELECT * FROM vw_orders_details;
+ORDERS_FACT.order_date < PRICES.date_to
+GROUP BY
+    ORDERS_FACT.invoice_id,
+    client_name,
+    BRANCHES.branch_name,
+    branch_city,
+    salesman_name,
+    ORDERS_FACT.order_date,
+    ORDERS_FACT.order_time,
+    ORDERS_FACT.payment_method,
+    PRODUCTS.product_name,
+    PRODUCTS.product_line,
+    PRODUCTS.product_description,
+    PRICES.price
+;

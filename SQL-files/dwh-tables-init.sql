@@ -1,6 +1,9 @@
 DROP SCHEMA IF EXISTS DWH;
 CREATE SCHEMA IF NOT EXISTS DWH;
 USE DWH;
+
+SET @CURRENT_BATCH_ID = 0;
+
 CREATE TABLE IF NOT EXISTS CLIENTS (
     client_id INTEGER PRIMARY KEY AUTO_INCREMENT,
     first_name VARCHAR(20),
@@ -56,7 +59,7 @@ CREATE TABLE IF NOT EXISTS BRANCHES (
     branch_id INTEGER PRIMARY KEY AUTO_INCREMENT,
     branch_name TEXT,
     city TEXT
-)
+);
 
 CREATE TABLE IF NOT EXISTS ORDERS_FACT (
     invoice_id INTEGER,
@@ -82,10 +85,3 @@ CREATE TABLE IF NOT EXISTS PRODUCT_ORDER (
     FOREIGN KEY (invoice_id) REFERENCES ORDERS_FACT(invoice_id),
     FOREIGN KEY (product_id) REFERENCES PRODUCTS(product_id)
 );
-
-
-INSERT INTO ERROR_CODES (code_description) VALUES
-('Invalid person name, it has disallowed characters [non english alphabets]'),
-('Invalid price, it cannot be negative'),
-('Invalid amount, it cannot be negative'),
-('Invalid phone number format');
