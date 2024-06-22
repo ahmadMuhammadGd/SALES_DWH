@@ -18,7 +18,6 @@ WHERE (branch_name, city) NOT IN (
     SELECT branch_name, city FROM BRANCHES
     );
 
-
 INSERT INTO CLIENTS (first_name, last_name)
 SELECT DISTINCT client_fname, client_lname
 FROM CSV_STAGING
@@ -28,7 +27,6 @@ WHERE (client_fname, client_lname) NOT IN (
 ) 
 AND client_phone NOT IN (SELECT phone_number FROM CLIENT_PHONES)
 AND client_email NOT IN (SELECT email FROM CLIENT_EMAILS);
-
 
 INSERT INTO CLIENT_EMAILS (person_id, email)
 SELECT DISTINCT CLIENTS.client_id, CSV_STAGING.client_email
@@ -40,7 +38,6 @@ AND CSV_STAGING.client_email NOT IN (
     SELECT email FROM CLIENT_EMAILS
 );
 
-
 INSERT INTO CLIENT_PHONES (person_id, phone_number)
 SELECT DISTINCT CLIENTS.client_id, CSV_STAGING.client_phone
 FROM CSV_STAGING
@@ -51,53 +48,64 @@ AND CSV_STAGING.client_phone NOT IN (
     SELECT phone_number FROM CLIENT_PHONES
 );
 
-
-
 INSERT INTO SALESMEN (first_name, last_name)
 SELECT DISTINCT salesman_fname, salesman_lname
 FROM CSV_STAGING
 WHERE CSV_STAGING.salesman_fname NOT IN (SELECT first_name FROM SALESMEN)
-AND CSV_STAGING.salesman_lname NOT IN (SELECT last_name FROM SALESMEN);
+AND CSV_STAGING.salesman_lname   NOT IN (SELECT last_name FROM SALESMEN);
 
 
-
-INSERT INTO PRODUCTS (product_name, product_line)
-SELECT DISTINCT product_name, product_line
-FROM CSV_STAGING
-WHERE (product_name, product_line) NOT IN (SELECT product_name, product_line FROM PRODUCTS);
-
-
-
-UPDATE PRICES
-INNER JOIN (
-  SELECT DISTINCT P.product_id, STR_TO_DATE(CSTG.order_date, '%Y-%m-%d') AS new_date_to
-  FROM PRICES AS P
-  JOIN PRODUCTS AS PRD ON PRD.product_id = P.product_id
-  JOIN CSV_STAGING AS CSTG ON PRD.product_name = CSTG.product_name
-  WHERE P.is_current = TRUE 
-  AND CAST(CSTG.product_price AS DECIMAL(10, 2)) <> CAST(P.price AS DECIMAL(10, 2))
-) AS to_close ON PRICES.product_id = to_close.product_id
-SET PRICES.date_to = to_close.new_date_to,
-    PRICES.is_current = FALSE;
-
-
-
-INSERT INTO PRICES (product_id, price, date_from, date_to, is_current)
+-- SCD2: PRODUCTS
+-- STEP ONE: INSERT NEW PRODUCTS (OR) NEW PRICES
+--      THIS QUERY HANDLES THE FOLLOWING SENARIOS:
+--          1. INSERTING NEW PRODUCTS
+--          2. INSERTING EXISTING PRODUCTS WITH OLD PRICES (IN THE SAME BATCH)
+--          3. INSERTING EXISTING PRODUCTS WITH NEW PRICES (IN THE SAME BATCH)
+INSERT INTO PRODUCTS (
+    product_name,
+    product_line,
+    price,
+    date_from,
+    date_to,
+    is_current
+)
 SELECT DISTINCT
-    P.product_id,
-    CSTG.product_price, 
-    CSTG.order_date, 
+    staging.product_name,
+    staging.product_line,
+    staging.product_price,
     '9999-12-31',
-    TRUE
-FROM CSV_STAGING AS CSTG
-LEFT JOIN PRODUCTS AS P ON P.product_name = CSTG.product_name
+    staging.order_date,
+    CASE 
+        WHEN staging.order_date > (
+            SELECT MAX(date_to)
+            FROM PRODUCTS
+            WHERE product_name = staging.product_name
+        )
+        THEN TRUE
+        ELSE FALSE
+    END
+FROM CSV_STAGING AS staging
 WHERE NOT EXISTS (
     SELECT 1
-    FROM PRICES AS P2
-    WHERE P2.product_id = P.product_id
-    AND P2.is_current = TRUE
+    FROM PRODUCTS p
+    WHERE p.product_name = staging.product_name
+      AND p.product_line = staging.product_line
+      AND p.price = staging.product_price
 );
-
+-- STEP 2: UPDATE date_to FOR OLD PRICES TO CURRENT DATE
+UPDATE PRODUCTS P 
+JOIN (
+    SELECT
+        product_name,
+        date_from,
+        LEAD(date_from) OVER (PARTITION BY product_name ORDER BY date_from) AS end_date
+    FROM PRODUCTS
+) AS CTE ON P.product_name = CTE.product_name AND P.date_from = CTE.date_from
+SET 
+    P.date_to = CTE.end_date,
+    P.is_current = FALSE
+WHERE 
+    CTE.end_date IS NOT NULL;
 
 
 INSERT INTO ORDERS_FACT(
