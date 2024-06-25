@@ -8,7 +8,8 @@ class pd_cleaner:
     def log_error(self, index, error_type):
         if index not in self.error_log:
             self.error_log[index] = []
-        self.error_log[index].append(self.error_codes[error_type])
+        # self.error_log[index].append(self.error_codes[error_type])
+        self.error_log[index].append(error_type)
     
     def remove_duplicates(self, df, error_code):
         duplicates = df.duplicated()

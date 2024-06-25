@@ -8,9 +8,8 @@ from scripts.csv_cleaning import CSV_source_cleaner
 from scripts.mysql_dwh import dwh_init_tables, dwh_stage, dwh_transform_load, dwh_update_view
 import shutil
 import logging
+import json
 
-
- 
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -35,13 +34,24 @@ def dwh_stage_task(**kwargs):
     dwh_stage(
         (cleaned_csv_file_path,), 
         **mysql_credentials
-        )
-    
-def dwh_transform_load_task():
-    dwh_transform_load(**mysql_credentials)
+    )
+
+def dwh_transform_load_task(**kwargs):
+    logs = kwargs['ti'].xcom_pull(key='error_logs')
+    logs = json.dumps(logs)
+    source_name = kwargs['ti'].xcom_pull(key='src_file_name')
+    params = {
+        'ETL_errors': logs, 
+        'source_name': source_name
+    }
+    dwh_transform_load(
+        params=params, 
+        **mysql_credentials
+    )
     
 def dwh_update_view_task():
     dwh_update_view(**mysql_credentials)
+    
 
 def check_files(**kwargs):
     reader = Read_landing(_LANDED)
@@ -63,6 +73,7 @@ def run_cleaner(**kwargs):
     cleaner.save_cleaned_data(destination_path)
     kwargs['ti'].xcom_push(key='cleaned_file', value=destination_path)
     kwargs['ti'].xcom_push(key='cleaned_file_name', value=cleaned_file_in_mysql)
+    kwargs['ti'].xcom_push(key='error_logs', value=cleaner.json_logs)
 
 def move_processed_file(**kwargs):
     src_file_name = kwargs['ti'].xcom_pull(key='src_file_name')
@@ -79,11 +90,6 @@ with DAG(
     tags=["pipeline", "mysql", "pandas"],
     default_args=default_args
 ) as dag:
-    
-    # task_init_tables = PythonOperator(
-    #     task_id = "task_init_tables",
-    #     python_callable = init_tables_task
-    # )
     
     task_check_files = PythonOperator(
         task_id = "task_check_files",

@@ -1,6 +1,7 @@
 import mysql.connector
 import logging
 import sqlparse
+import re
 
 class Mysql_connector:
     def __init__(self, host:str, user:str, password:str):
@@ -24,7 +25,7 @@ class Mysql_connector:
     
 
 
-    def execute_sql(self, sql_statement: str, params: tuple = None, delimiter: str = ';'):
+    def execute_sql(self, sql_statement: str, params: tuple | list | dict = None):
         statements = sqlparse.split(sql_statement)
         
         for statement in statements:
@@ -33,7 +34,8 @@ class Mysql_connector:
                     strip_comments = True,
                 )
                 logging.info(statement)
-                if params and '%s' in statement:
+                if params and (re.findall('%\(([^)]+)\)s', statement)) or ('%s' in statement):
+                    logging.debug('found parameter!')
                     self.cursor.execute(statement, params)
                 else:
                     self.cursor.execute(statement)

@@ -1,0 +1,8 @@
+draft.sql
+mysql
+venv
+__pycache__
+.vscode
+LOGs/*
+test.py
+mysql-compose.yaml
