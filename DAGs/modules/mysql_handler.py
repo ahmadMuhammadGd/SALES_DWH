@@ -1,5 +1,6 @@
 import mysql.connector
 import logging
+import sqlparse
 import re
 
 class Mysql_connector:
@@ -24,20 +25,17 @@ class Mysql_connector:
     
 
 
-    def execute_sql(self, sql_statement: str, params: tuple = None, delimiter: str = ';'):
-        one_line_comment_pattern = r'^--.*+/g'
-        statements = sql_statement.split(delimiter)
+    def execute_sql(self, sql_statement: str, params: tuple | list | dict = None):
+        statements = sqlparse.split(sql_statement)
         
         for statement in statements:
-            statement = statement.strip()
-            if statement:  
-                # remove one line comments
-                statement = re.sub(one_line_comment_pattern, '', statement, flags=re.MULTILINE)
-                # add delimiter
-                statement = f'{statement}{delimiter}'
+                statement = sqlparse.format(
+                    sql= statement,
+                    strip_comments = True,
+                )
                 logging.info(statement)
-                
-                if params and '%s' in statement:
+                if params and (re.findall('%\(([^)]+)\)s', statement)) or ('%s' in statement):
+                    logging.debug('found parameter!')
                     self.cursor.execute(statement, params)
                 else:
                     self.cursor.execute(statement)

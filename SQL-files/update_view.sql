@@ -12,16 +12,14 @@ LEFT JOIN CLIENT_EMAILS ce ON c.client_id = ce.person_id;
 
 CREATE OR REPLACE VIEW vw_current_product_prices AS
 SELECT 
-    p.product_id,
-    p.product_name,
-    p.product_line,
-    p.product_description,
-    pr.price,
-    pr.date_from,
-    pr.date_to
-FROM PRODUCTS p
-JOIN PRICES pr ON p.product_id = pr.product_id
-WHERE pr.is_current = TRUE;
+    product_id,
+    product_name,
+    product_line,
+    product_description,
+    price,
+    date_from
+FROM PRODUCTS 
+WHERE is_current = TRUE;
 
 
 CREATE OR REPLACE VIEW vw_orders_details AS
@@ -37,20 +35,18 @@ SELECT DISTINCT
     PRODUCTS.product_name,
     PRODUCTS.product_line,
     PRODUCTS.product_description,
-    PRICES.price,
+    PRODUCTS.price,
     SUM(PRODUCT_ORDER.order_amount) AS quantity
 FROM ORDERS_FACT
 LEFT JOIN PRODUCT_ORDER ON ORDERS_FACT.invoice_id = PRODUCT_ORDER.invoice_id
-LEFT JOIN PRODUCTS ON PRODUCT_ORDER.product_id = PRODUCTS.product_id
 LEFT JOIN BRANCHES ON BRANCHES.branch_id = ORDERS_FACT.branch_id
 LEFT JOIN SALESMEN ON SALESMEN.salesman_id = ORDERS_FACT.salesman_id
 LEFT JOIN CLIENTS ON CLIENTS.client_id = ORDERS_FACT.client_id
-LEFT JOIN PRICES ON 
-PRICES.product_id = PRODUCTS.product_id
+LEFT JOIN PRODUCTS ON PRODUCT_ORDER.product_id = PRODUCTS.product_id
 AND
-ORDERS_FACT.order_date >= PRICES.date_from
+ORDERS_FACT.order_date >= PRODUCTS.date_from
 AND 
-ORDERS_FACT.order_date < PRICES.date_to
+ORDERS_FACT.order_date < PRODUCTS.date_to
 GROUP BY
     ORDERS_FACT.invoice_id,
     client_name,
@@ -63,5 +59,5 @@ GROUP BY
     PRODUCTS.product_name,
     PRODUCTS.product_line,
     PRODUCTS.product_description,
-    PRICES.price
+    PRODUCTS.price
 ;

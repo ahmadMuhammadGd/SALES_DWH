@@ -1,75 +1,70 @@
 DROP SCHEMA IF EXISTS DWH;
+
 CREATE SCHEMA IF NOT EXISTS DWH;
+
 USE DWH;
 
 SET @CURRENT_BATCH_ID = 0;
 
 CREATE TABLE IF NOT EXISTS CLIENTS (
-    client_id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    first_name VARCHAR(20),
-    last_name VARCHAR(20)
+    client_id               INTEGER PRIMARY KEY AUTO_INCREMENT,
+    first_name              VARCHAR(20),
+    last_name               VARCHAR(20)
 );
 
 CREATE TABLE IF NOT EXISTS SALESMEN (
-    salesman_id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    first_name VARCHAR(20),
-    last_name VARCHAR(20)
+    salesman_id             INTEGER PRIMARY KEY AUTO_INCREMENT,
+    first_name              VARCHAR(20),
+    last_name               VARCHAR(20)
 );
 
 CREATE TABLE IF NOT EXISTS CLIENT_PHONES (
-    person_id INTEGER,
-    phone_number VARCHAR(15),
+    person_id               INTEGER,
+    phone_number            VARCHAR(15),
     FOREIGN KEY (person_id) REFERENCES CLIENTS(client_id)
 );
 
 CREATE TABLE IF NOT EXISTS CLIENT_EMAILS (
-    person_id INTEGER,
-    email VARCHAR(30),
+    person_id               INTEGER,
+    email                   VARCHAR(30),
     FOREIGN KEY (person_id) REFERENCES CLIENTS(client_id)
 );
 
 CREATE TABLE IF NOT EXISTS PRODUCTS (
-    product_id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    product_name VARCHAR(20),
-    product_line VARCHAR(20),
-    product_description VARCHAR(50)
+    product_id              INTEGER PRIMARY KEY AUTO_INCREMENT,
+    product_name            VARCHAR(20),
+    product_line            VARCHAR(20),
+    product_description     VARCHAR(50),
+    price                   FLOAT,
+    date_from               DATE,
+    date_to                 DATE,
+    is_current              BOOLEAN
 );
 
-CREATE TABLE IF NOT EXISTS PRICES (
-    product_id INTEGER,
-    price FLOAT,
-    date_from DATE,
-    date_to DATE,
-    is_current BOOLEAN,
-    FOREIGN KEY (product_id) REFERENCES PRODUCTS(product_id)
-);
 
 CREATE TABLE IF NOT EXISTS ETL_BATCH (
-    batch_id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    start_time DATETIME,
-    finish_time DATETIME,
-    ETL_errors JSON
-);
-CREATE TABLE IF NOT EXISTS ERROR_CODES (
-    error_id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    code_description VARCHAR(255)
+    batch_id                INTEGER PRIMARY KEY AUTO_INCREMENT,
+    source_name             TEXT,
+    start_time              DATETIME,
+    finish_time             DATETIME,
+    ETL_errors              JSON
 );
 
 CREATE TABLE IF NOT EXISTS BRANCHES (
-    branch_id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    branch_name TEXT,
-    city TEXT
+    branch_id               INTEGER PRIMARY KEY AUTO_INCREMENT,
+    branch_name             TEXT,
+    city                    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS ORDERS_FACT (
-    invoice_id INTEGER,
-    client_id INTEGER,
-    batch_id INTEGER,
-    branch_id INTEGER,
-    salesman_id INTEGER,
-    order_date DATE,
-    order_time TIME,
-    payment_method TEXT,
+    invoice_id              INTEGER,
+    client_id               INTEGER,
+    batch_id                INTEGER,
+    branch_id               INTEGER,
+    salesman_id             INTEGER,
+    order_date              DATE,
+    order_time              TIME,
+    payment_method          TEXT,
     PRIMARY KEY (invoice_id, branch_id),
     FOREIGN KEY (client_id) REFERENCES CLIENTS(client_id),
     FOREIGN KEY (salesman_id) REFERENCES SALESMEN(salesman_id),
@@ -77,11 +72,10 @@ CREATE TABLE IF NOT EXISTS ORDERS_FACT (
     FOREIGN KEY (batch_id) REFERENCES ETL_BATCH(batch_id)
 );
 
-
 CREATE TABLE IF NOT EXISTS PRODUCT_ORDER (
-    invoice_id INTEGER,
-    product_id INTEGER,
-    order_amount DECIMAL(10, 2),
+    invoice_id              INTEGER,
+    product_id              INTEGER,
+    order_amount            DECIMAL(10, 2),
     FOREIGN KEY (invoice_id) REFERENCES ORDERS_FACT(invoice_id),
     FOREIGN KEY (product_id) REFERENCES PRODUCTS(product_id)
 );

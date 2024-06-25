@@ -82,6 +82,7 @@ class CSV_source_cleaner:
             f.write(self.table_schema)
             
 # Example usage:
+# _PATH = "STAGES/LANDED/2024-06-20 17:56:33.772837.csv"
 # cleaner = CSV_source_cleaner(_PATH)
 # cleaner.clean()
 # cleaner.save_cleaned_data("cleaned_data.csv")
