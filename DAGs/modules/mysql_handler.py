@@ -1,6 +1,5 @@
 import mysql.connector
 import logging
-import re
 import sqlparse
 
 class Mysql_connector:
