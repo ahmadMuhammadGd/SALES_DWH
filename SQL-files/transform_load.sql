@@ -56,57 +56,56 @@ AND CSV_STAGING.salesman_lname   NOT IN (SELECT last_name FROM SALESMEN);
 
 
 -- SCD2: PRODUCTS
--- STEP ONE: INSERT NEW PRODUCTS (OR) NEW PRICES
---      THIS QUERY HANDLES THE FOLLOWING SENARIOS:
---          1. INSERTING NEW PRODUCTS
---          2. INSERTING EXISTING PRODUCTS WITH OLD PRICES (IN THE SAME BATCH)
---          3. INSERTING EXISTING PRODUCTS WITH NEW PRICES (IN THE SAME BATCH)
-INSERT INTO PRODUCTS (
+INSERT INTO `DWH`.`PRODUCTS` (
     product_name,
     product_line,
     price,
-    date_from,
-    date_to,
-    is_current
+    date_from
 )
-SELECT DISTINCT
-    staging.product_name,
-    staging.product_line,
-    staging.product_price,
-    '9999-12-31',
-    staging.order_date,
-    CASE 
-        WHEN staging.order_date > (
-            SELECT MAX(date_to)
-            FROM PRODUCTS
-            WHERE product_name = staging.product_name
-        )
-        THEN TRUE
+SELECT 
+    product_name,
+    product_line,
+    product_price,
+    MIN(order_date)
+FROM
+    `DWH`.`CSV_STAGING` AS SRC
+GROUP BY
+    product_name,
+    product_line,
+    product_price
+HAVING (
+    product_name,
+    product_line,
+    product_price
+) NOT IN (
+    SELECT DISTINCT  
+        product_name,
+        product_line,
+        price 
+    FROM `DWH`.`PRODUCTS`
+    );
+
+-- close prices 
+SET @MAXDATE = '9999-12-31';
+UPDATE `DWH`.`PRODUCTS` AS P
+INNER JOIN (
+    SELECT 
+        product_id,
+        COALESCE(
+            LEAD(date_from) OVER (
+                PARTITION BY product_name, product_line, product_description
+                ORDER BY date_from 
+            ),
+        @MAXDATE) AS close_date
+    FROM `DWH`.`PRODUCTS`
+) AS T
+On P.product_id = T.product_id
+SET P.date_to = close_date,
+    P.is_current = CASE 
+        WHEN T.close_date = @MAXDATE THEN TRUE
         ELSE FALSE
     END
-FROM CSV_STAGING AS staging
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM PRODUCTS p
-    WHERE p.product_name = staging.product_name
-      AND p.product_line = staging.product_line
-      AND p.price = staging.product_price
-);
--- STEP 2: UPDATE date_to FOR OLD PRICES TO CURRENT DATE
-UPDATE PRODUCTS P 
-JOIN (
-    SELECT
-        product_name,
-        date_from,
-        LEAD(date_from) OVER (PARTITION BY product_name ORDER BY date_from) AS end_date
-    FROM PRODUCTS
-) AS CTE ON P.product_name = CTE.product_name AND P.date_from = CTE.date_from
-SET 
-    P.date_to = CTE.end_date,
-    P.is_current = FALSE
-WHERE 
-    CTE.end_date IS NOT NULL;
-
+WHERE TRUE;
 
 INSERT INTO ORDERS_FACT(
     client_id,
